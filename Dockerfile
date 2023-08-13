@@ -12,7 +12,10 @@ RUN apk -v --no-cache --update add \
     && git config --global user.name "Fulano de Tal" \
     && npm install -g aws-cdk@${AWS_CDK_VERSION}
 
-WORKDIR "/app"
+WORKDIR /app
+COPY app /app
+
+RUN go get ./...
 
 ENTRYPOINT ["cdk"]
 CMD ["--version"]
