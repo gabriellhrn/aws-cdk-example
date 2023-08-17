@@ -23,9 +23,10 @@ func NewAppStack(scope constructs.Construct, id string, props *AppStackProps) aw
 	}
 	stack := awscdk.NewStack(scope, &id, &sprops)
 
-	awss3.NewBucket(stack, jsii.String("AppBucket"), &awss3.BucketProps{})
+	createBucket(stack, "AppBucket", nil)
+	createWebsiteBucket(stack, "WebsiteBucket", nil)
 
-	queue := awssqs.NewQueue(stack, jsii.String("AppQueue"), &awssqs.QueueProps{
+	queue := createQueue(stack, "AppQueue", &awssqs.QueueProps{
 		VisibilityTimeout: awscdk.Duration_Seconds(jsii.Number(300)),
 	})
 
@@ -34,6 +35,8 @@ func NewAppStack(scope constructs.Construct, id string, props *AppStackProps) aw
 		queue,
 		&awssnssubscriptions.SqsSubscriptionProps{},
 	))
+
+	createFifoQueue(stack, "FifoQueue", nil)
 
 	return stack
 }
@@ -53,5 +56,37 @@ func main() {
 }
 
 func env() *awscdk.Environment {
-	return nil
+	return &awscdk.Environment{
+		Account: jsii.String("736270483889"),
+		Region:  jsii.String("eu-west-1"),
+	}
+}
+
+func createBucket(stack awscdk.Stack, id string, props *awss3.BucketProps) awss3.Bucket {
+	return awss3.NewBucket(stack, jsii.String(id), props)
+}
+
+func createWebsiteBucket(stack awscdk.Stack, id string, props *awss3.BucketProps) awss3.Bucket {
+	if props == nil {
+		props = &awss3.BucketProps{
+			WebsiteIndexDocument: jsii.String("index.html"),
+			PublicReadAccess:     jsii.Bool(true),
+		}
+	}
+
+	return createBucket(stack, id, props)
+}
+
+func createQueue(stack awscdk.Stack, id string, props *awssqs.QueueProps) awssqs.Queue {
+	return awssqs.NewQueue(stack, jsii.String(id), props)
+}
+
+func createFifoQueue(stack awscdk.Stack, id string, props *awssqs.QueueProps) awssqs.Queue {
+	if props == nil {
+		props = &awssqs.QueueProps{}
+	}
+
+	props.Fifo = jsii.Bool(true)
+
+	return awssqs.NewQueue(stack, jsii.String(id), props)
 }

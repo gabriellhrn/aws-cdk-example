@@ -14,10 +14,15 @@ func TestAppStack(t *testing.T) {
 	stack := NewAppStack(app, id, nil)
 
 	template := assertions.Template_FromStack(stack, nil)
-	template.ResourceCountIs(jsii.String("AWS::SNS::Topic"), jsii.Number(1))
-	template.ResourceCountIs(jsii.String("AWS::SQS::Queue"), jsii.Number(1))
-	template.ResourceCountIs(jsii.String("AWS::S3::Bucket"), jsii.Number(1))
 
+	// Test if the number of resources is right.
+	template.ResourceCountIs(jsii.String("AWS::SNS::Topic"), jsii.Number(1))
+	template.ResourceCountIs(jsii.String("AWS::SNS::Subscription"), jsii.Number(1))
+	template.ResourceCountIs(jsii.String("AWS::SQS::Queue"), jsii.Number(2))
+	template.ResourceCountIs(jsii.String("AWS::S3::Bucket"), jsii.Number(2))
+	template.ResourceCountIs(jsii.String("AWS::S3::BucketPolicy"), jsii.Number(1))
+
+	// Test if the SNS Topic has the right values and has an SQS subscription.
 	subscriptionCapture := assertions.NewCapture(assertions.Match_ObjectLike(
 		&map[string]interface{}{
 			"Fn::GetAtt": []string{
@@ -28,14 +33,42 @@ func TestAppStack(t *testing.T) {
 	))
 
 	template.HasResourceProperties(jsii.String("AWS::SNS::Topic"), map[string]interface{}{})
+
 	template.HasResourceProperties(jsii.String("AWS::SNS::Subscription"), map[string]interface{}{
 		"Protocol": "sqs",
 		"Endpoint": subscriptionCapture,
 	})
 
+	// Test if the FIFO Queue has the right values.
 	template.HasResourceProperties(jsii.String("AWS::SQS::Queue"), map[string]interface{}{
+		"FifoQueue": true,
+	})
+
+	// Test if the Standard Queue has the right values.
+	template.HasResourceProperties(jsii.String("AWS::SQS::Queue"), map[string]interface{}{
+		"FifoQueue":         assertions.Match_Absent(),
 		"VisibilityTimeout": 300,
 	})
 
-	template.HasResourceProperties(jsii.String("AWS::S3::Bucket"), map[string]interface{}{})
+	// Test if there is one bucket NOT configured for static hosting.
+	template.HasResourceProperties(jsii.String("AWS::S3::Bucket"), map[string]interface{}{
+		"WebsiteConfiguration": assertions.Match_Absent(),
+	})
+
+	// Test if there is one bucket configured for static hosting.
+	bucketPolicyCapture := assertions.NewCapture(assertions.Match_ObjectLike(
+		&map[string]interface{}{
+			"Ref": "WebsiteBucket75C24D94",
+		},
+	))
+
+	template.HasResourceProperties(jsii.String("AWS::S3::Bucket"), map[string]interface{}{
+		"WebsiteConfiguration": map[string]string{
+			"IndexDocument": "index.html",
+		},
+	})
+
+	template.HasResourceProperties(jsii.String("AWS::S3::BucketPolicy"), map[string]interface{}{
+		"Bucket": bucketPolicyCapture,
+	})
 }
